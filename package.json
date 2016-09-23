@@ -1,0 +1,43 @@
+{
+  "name": "cv-be",
+  "version": "1.0.0",
+  "description": "Curriculum vitae backend services powered by restify",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint lib test",
+    "coverage": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec",
+    "test": "npm run lint && npm run coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lvaldovinos/cv-be.git"
+  },
+  "keywords": [
+    "cv",
+    "node",
+    "resitify"
+  ],
+  "author": "Luis Valdovinos",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lvaldovinos/cv-be/issues"
+  },
+  "homepage": "https://github.com/lvaldovinos/cv-be#readme",
+  "dependencies": {
+    "async": "^2.0.1",
+    "moment": "^2.14.1",
+    "my-config": "^2.0.0",
+    "node-uuid": "^1.4.7",
+    "request": "^2.74.0",
+    "restify": "^4.1.1"
+  },
+  "devDependencies": {
+    "eslint": "^3.3.1",
+    "eslint-config-airbnb-base": "^7.1.0",
+    "eslint-plugin-import": "^1.15.0",
+    "istanbul": "^0.4.4",
+    "mocha": "^2.5.3",
+    "should": "^10.0.0",
+    "supertest": "^2.0.0"
+  }
+}

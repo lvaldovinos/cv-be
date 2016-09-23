@@ -1,0 +1,7 @@
+{
+  "views" : {
+    "all" : {
+      "map" : "function(doc) { if (doc.type && doc.type === \"company\") { if (!doc.removedOn) { emit(doc._id, doc) } } };"
+    }
+  }
+}

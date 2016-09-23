@@ -1,0 +1,13 @@
+{
+  "defaults": {
+    "port": 3000
+  },
+  "local": {
+    "ip": "127.0.0.1",
+    "couchdb": {
+      "server": "localhost",
+      "port": 5984,
+      "db": "cv"
+    }
+  }
+}
