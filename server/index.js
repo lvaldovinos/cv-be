@@ -1,6 +1,8 @@
 const restify = require('restify');
-const packageJson = require('./package.json');
-const { Project, Company, Skill } = require('./lib/core');
+const packageJson = require('../package.json');
+const companyRoute = require('./company');
+const skillRoute = require('./skill');
+const projectRoute = require('./project');
 
 const server = restify.createServer({
   name: 'cv-be',
@@ -43,44 +45,14 @@ server.use(restify.bodyParser({
 }));
 // cors
 server.use(restify.CORS());
-// api
-function getProjects(req, res, next) {
-  // get all valid projects
-  Project.getAllValid((err, projects) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    return res.send(projects);
-  });
-}
-function createProject(req, res, next) {
-  const project = new Project(req.body);
-  project.create((err) => {
-    if (err && err.code === 'InvalidType') {
-      return next(new restify.errors.InvalidContentError(err.message));
-    }
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    const { id, rev } = project;
-    return res.send(201, {
-      id,
-      rev,
-    });
-  });
-}
-function getCompanies(req, res, next) {
-  Company.getAll((err, companies) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    return res.send(companies);
-  });
-}
-function getSkills(req, res, next) {
-  Skill.getAll((err, skills) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    return res.send(skills);
-  });
-}
-server.get('/companies', getCompanies);
-server.get('/skills', getSkills);
-server.get('/projects', getProjects);
-server.post('/projects', createProject);
+
+// company route
+companyRoute(server);
+// skill route
+skillRoute(server);
+// project route
+projectRoute(server);
+
 // 404 notfound
 server.use((req, res, next) => next(new restify.NotFoundError()));
 

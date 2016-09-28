@@ -9,5 +9,13 @@
       "port": 5984,
       "db": "cv"
     }
+  },
+  "dev": {
+    "ip": "127.0.0.1",
+    "couchdb": {
+      "server": "cv-couchdb",
+      "port": 5984,
+      "db": "cv"
+    }
   }
 }

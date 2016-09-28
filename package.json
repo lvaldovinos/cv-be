@@ -4,9 +4,12 @@
   "description": "Curriculum vitae backend services powered by restify",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint lib test",
+    "lint": "eslint lib test server index.js",
     "coverage": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec",
-    "test": "npm run lint && npm run coverage"
+    "test": "npm run lint && npm run coverage",
+    "dev": "./index.js dev",
+    "local": "./index.js local",
+    "tt": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec test/company_spec.js test/skill_spec.js"
   },
   "repository": {
     "type": "git",
@@ -29,7 +32,8 @@
     "my-config": "^2.0.0",
     "node-uuid": "^1.4.7",
     "request": "^2.74.0",
-    "restify": "^4.1.1"
+    "restify": "^4.1.1",
+    "winston": "^2.2.0"
   },
   "devDependencies": {
     "eslint": "^3.3.1",
