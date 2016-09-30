@@ -69,8 +69,7 @@ describe('lib/core test suite', () => {
         should(error).be.ok();
         should(badConnection.connected).be.exactly(false);
         should(badConnection.getConnectionUrl()).be.exactly(null);
-        should(error.code).be.exactly('NOTEXISTS');
-        should(error.message).be.exactly('Database does not exist');
+        should(error.code).be.equalOneOf(['ECONNREFUSED', 'NOTEXISTS']);
         done(null);
       });
   });

@@ -5,11 +5,12 @@
   "main": "index.js",
   "scripts": {
     "lint": "eslint lib test server index.js",
-    "coverage": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec",
-    "test": "npm run lint && npm run coverage",
+    "coverage-local": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec",
+    "coverage-dev": "CONFIG=config.json ENV=dev istanbul cover _mocha -- -R spec",
+    "test": "npm run lint && npm run coverage-dev",
+    "test-local": "npm run lint && npm run coverage-local",
     "dev": "./index.js dev",
-    "local": "./index.js local",
-    "tt": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec test/company_spec.js test/skill_spec.js"
+    "local": "./index.js local"
   },
   "repository": {
     "type": "git",
