@@ -15,7 +15,7 @@ after_script:
   - VERSION=$(docker exec -it cv-be ./index.js --version)
   - docker exec -it cv-be npm install coveralls && cat ./coverage/lcov.info | coveralls
   - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-  - echo "docker tag lvaldovinos/cv-be lvaldovinos/cv-be:`$VERSION`" 
+  - echo "docker tag lvaldovinos/cv-be lvaldovinos/cv-be:$VERSION" 
 env:
   - CXX=g++-4.8
 addons:
