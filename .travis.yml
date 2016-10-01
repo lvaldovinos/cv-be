@@ -17,6 +17,7 @@ after_script:
   - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - docker tag lvaldovinos/cv-be lvaldovinos/cv-be:"$VERSION" 
   - docker push lvaldovinos/cv-be
+  - docker push lvaldovinos/cv-be:"$VERSION"
 env:
   - CXX=g++-4.8
 addons:
