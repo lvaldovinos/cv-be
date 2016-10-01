@@ -9,8 +9,8 @@
     "coverage-dev": "CONFIG=config.json ENV=dev istanbul cover _mocha -- -R spec",
     "test": "npm run lint && npm run coverage-dev",
     "test-local": "npm run lint && npm run coverage-local",
-    "dev": "./index.js dev",
-    "local": "./index.js local"
+    "dev": "./index.js -e dev",
+    "local": "./index.js -e local"
   },
   "repository": {
     "type": "git",
@@ -29,6 +29,7 @@
   "homepage": "https://github.com/lvaldovinos/cv-be#readme",
   "dependencies": {
     "async": "^2.0.1",
+    "commander": "^2.9.0",
     "moment": "^2.14.1",
     "my-config": "^2.0.0",
     "node-uuid": "^1.4.7",
