@@ -11,6 +11,8 @@ RUN npm install
 COPY . /usr/src/cv-be
 # exe priv to index.js
 RUN chmod 777 index.js
+# remove git
+RUN apk del git
 # expose port
 EXPOSE 3000
 # start application
