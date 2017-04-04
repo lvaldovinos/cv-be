@@ -2,7 +2,7 @@ FROM node:alpine
 MAINTAINER Luis Valdovinos "lastkiss115@gmail.com"
 # create workdir folder
 RUN apk add --no-cache sqlite git && \
-  mkdir -p /usr/src/cv-be && \
+  mkdir -p /usr/src/cv-be
 WORKDIR /usr/src/cv-be
 # COPY DEPENDENCIES
 COPY package.json .
