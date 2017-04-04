@@ -1,8 +1,12 @@
+'use strict';
+
 const restify = require('restify');
 const packageJson = require('../package.json');
-const companyRoute = require('./company');
-const skillRoute = require('./skill');
-const projectRoute = require('./project');
+const locationRouter = require('./location');
+const roleRouter = require('./role');
+const toolRouter = require('./tool');
+const companyRouter = require('./company');
+const projectRouter = require('./project');
 
 const server = restify.createServer({
   name: 'cv-be',
@@ -26,7 +30,6 @@ const server = restify.createServer({
           };
         },
       };
-      if (Buffer.isBuffer(body)) return cb(null, body.toString('base64'));
       if (body instanceof Error) {
         response.code = body.statusCode;
         response.message = body.body;
@@ -46,12 +49,12 @@ server.use(restify.bodyParser({
 // cors
 server.use(restify.CORS());
 
-// company route
-companyRoute(server);
-// skill route
-skillRoute(server);
-// project route
-projectRoute(server);
+// routers
+locationRouter(server);
+roleRouter(server);
+toolRouter(server);
+companyRouter(server);
+projectRouter(server);
 
 // 404 notfound
 server.use((req, res, next) => next(new restify.NotFoundError()));

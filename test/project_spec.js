@@ -1,257 +1,455 @@
+'use strict';
+
 const should = require('should');
-const async = require('async');
-const core = require('../lib/core');
-const is = require('../lib/is');
-const config = require('my-config');
-const path = require('path');
-const moment = require('moment');
-const apiServer = require('../server');
 const request = require('supertest');
+const Promise = require('bluebird');
+const fs = Promise.promisifyAll(require('fs'));
+const { connectionFactory, schemaBuilder } = require('cv-core');
+const server = require('../server');
+const winston = require('winston');
+const config = require('../config');
 
-const configPath = process.env.CONFIG;
-const env = process.env.ENV;
-let configuration = {};
-let skill = {};
-let company = {};
+const locations = {};
+const companies = {};
 let project = {};
-let couchdbConf = {};
 
-describe('lib/core/project test suite', () => {
-  // get configuration
+describe('project test suite', () => {
   before((done) => {
-    config.init({
-      path: path.resolve(configPath),
-      env,
-    }, (err, c) => {
-      if (err) return done(err);
-      configuration = c;
-      couchdbConf = Object.assign({}, configuration.couchdb);
-      couchdbConf.db = `testing-${couchdbConf.db}`;
-      return done(null);
-    });
-  });
-  before((done) => {
-    core.createDb(couchdbConf, done);
-  });
-  before((done) => {
-    core
-      .createConnection(couchdbConf)
-      .once('error', done)
-      .once('connect', done);
-  });
-  before((done) => {
-    core.saveDesign({
-      designPath: path.resolve(__dirname, '../lib/core/project/design.json'),
-      type: 'project',
-    }, done);
-  });
-  before((done) => {
-    skill = new core.Skill({
-      name: 'nodejs',
-      url: 'https://nodejs.org/en/',
-    });
-    skill.create(done);
-  });
-  before((done) => {
-    company = new core.Company({
-      name: 'Unosquare',
-      url: 'http://www.unosquare.com/',
-      location: {
-        address: 'Av. Américas 1536 1A Col. Country Club',
-        zip: 44637,
-        city: 'Guadalajara',
-        state: 'Jalisco',
-      },
-    });
-    company.create(done);
+    // create schema
+    connectionFactory.sqlite({
+      database: config.DATABASE,
+      logger: winston,
+    })
+    .then(conn => schemaBuilder.sqlite(conn)
+      .then(() => conn))
+    .then(conn => conn.close())
+    .then(() => {
+      locations.gdl = {
+        city: 'Gudalajara',
+        country: 'MEX',
+      };
+      locations.boston = {
+        city: 'Boston',
+        country: 'USA',
+      };
+      return request(server)
+        .post('/locations')
+        .send(locations.gdl)
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then(({ body }) => {
+          const { data } = body;
+          locations.gdl.id = data.id;
+          return request(server)
+            .post('/locations')
+            .send(locations.boston)
+            .expect('Content-Type', /json/)
+            .expect(201);
+        })
+        .then(({ body }) => {
+          const { data } = body;
+          locations.boston.id = data.id;
+          return Promise.resolve();
+        });
+    })
+    .then(() => {
+      companies.unosquare = {
+        name: 'unosquare',
+        webpage: 'https://www.unosquare.com',
+        imageUrl: 'https://www.unosquare.com/images/logo_178.png',
+        locationId: locations.gdl.id,
+      };
+      companies.fmi = {
+        name: 'foundation medicine',
+        webpage: 'http://www.foundationmedicine.com',
+        imageUrl: 'http://www.foundationmedicine.com/wp-content/themes/foundationmedicine/img/logos/foundation-medicine-2x.png',
+        locationId: locations.boston.id,
+      };
+      return request(server)
+        .post('/companies')
+        .send(companies.unosquare)
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then(({ body }) => {
+          const { data } = body;
+          companies.unosquare.id = data.id;
+          return request(server)
+            .post('/companies')
+            .send(companies.fmi)
+            .expect('Content-Type', /json/)
+            .expect(201);
+        })
+        .then(({ body }) => {
+          const { data } = body;
+          companies.fmi.id = data.id;
+          return done(null);
+        });
+    })
+    .catch(done);
   });
   beforeEach((done) => {
     project = {
-      name: 'Bluejay',
-      startDate: moment().format(),
-      client: 'Foundation Medicine',
-      location: {
-        address: 'Av. Américas 1536 1A Col. Country Club',
-        zip: 44637,
-        city: 'Guadalajara',
-        state: 'Jalisco',
-      },
-      description: 'bluejay is a tool built using angular and d3 in the FE',
-      duties: [
-        'Gather requirements from BI and transform them into reality',
-      ],
-      company: company.id,
-      skills: [
-        skill.id,
-      ],
+      name: 'bluejay',
+      startDate: 'Aug 2015',
+      highlight: 'a great project',
+      clientId: companies.fmi.id,
+      vendorId: companies.unosquare.id,
     };
-    request(apiServer)
+    request(server)
       .post('/projects')
-      .type('application/json')
       .send(project)
+      .expect('Content-Type', /json/)
       .expect(201)
-      .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
+      .then((response) => {
+        const { body } = response;
         const { data } = body;
+        should(data.id).be.a.Number();
+        should(data.id > 0).be.exactly(true);
         project.id = data.id;
-        project.rev = data.rev;
         return done(null);
-      });
+      })
+      .catch(done);
   });
-  it('Should create a new project', (done) => {
-    request(apiServer)
-      .get(`/projects/${project.id}`)
-      .type('application/json')
-      .expect(200)
-      .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
-        const { data: existingProject } = body;
-        should(existingProject.name).be.exactly(project.name);
-        should(existingProject.startDate).be.exactly(project.startDate);
-        should(existingProject.client).be.exactly(project.client);
-        should(existingProject.location).be.eql(project.location);
-        should(existingProject.description).be.exactly(project.description);
-        should(existingProject.duties).be.eql(project.duties);
-        should(is.date(existingProject.createdOn)).be.exactly(true);
-        return done(null);
-      });
-  });
-  it('Should respond 400 if invalid body', (done) => {
-    const badProject = Object.assign({}, project);
-    badProject.name = 123;
-    request(apiServer)
-      .post('/projects')
-      .type('application/json')
-      .send(badProject)
-      .expect(400)
-      .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
-        const { message } = body;
-        should(body.code).be.exactly(400);
-        should(message.message).be.exactly('Property name must be string');
-        return done(null);
-      });
-  });
-  it('Should get null if id not exists', (done) => {
-    request(apiServer)
-      .get('/projects/notexists')
-      .type('application/json')
-      .expect(404)
-      .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
-        const { data: existingProject } = body;
-        should(existingProject).be.exactly(null);
-        return done(null);
-      });
-  });
-  it('Should respond 404 when removing invalid project id', (done) => {
-    request(apiServer)
-      .delete('/projects/notexists')
-      .type('application/json')
-      .expect(404)
-      .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
-        const { data: existingProject } = body;
-        should(existingProject).be.exactly(null);
-        return done(null);
-      });
-  });
-  it('Should get new project', (done) => {
-    request(apiServer)
+  it('get all projects', (done) => {
+    request(server)
       .get('/projects')
-      .type('application/json')
-      .expect(200)
       .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
+      .expect(200)
+      .then(({ body }) => {
         const { data: projects } = body;
-        const testingProjects = projects.rows.filter(p => p.id === project.id);
-        const totalProjects = projects.totalRows;
-        should(testingProjects).have.length(1);
-        should(totalProjects).be.exactly(1);
-        should(testingProjects[0].name).be.exactly(project.name);
-        should(testingProjects[0].startDate).be.exactly(project.startDate);
-        should(testingProjects[0].client).be.exactly(project.client);
-        should(testingProjects[0].location).be.eql(project.location);
-        should(testingProjects[0].description).be.exactly(project.description);
-        should(testingProjects[0].duties).be.eql(project.duties);
-        should(is.date(testingProjects[0].createdOn)).be.exactly(true);
+        should(projects).be.an.Array();
+        should(projects).have.length(1);
+        should(projects[0]).have.properties([
+          'name',
+          'id',
+          'startDate',
+          'endDate',
+          'highlight',
+          'clientId',
+          'vendorId',
+        ]);
+        should(projects[0].id).be.exactly(project.id);
+        should(projects[0].name).be.exactly('bluejay');
+        should(projects[0].startDate).be.exactly('Aug 2015');
+        should(projects[0].endDate).be.exactly(null);
+        should(projects[0].highlight).be.exactly('a great project');
+        should(projects[0].clientId).be.exactly(companies.fmi.id);
+        should(projects[0].vendorId).be.exactly(companies.unosquare.id);
         return done(null);
-      });
+      })
+      .catch(done);
   });
-  it('Should be able to update a project', (done) => {
-    setTimeout(() => {
-      project.name = 'Updated Name';
-      project.client = 'Updated Client';
-      project.location = {
-        address: 'Av. Updated Américas 1536 1A Col. Country Club',
-        zip: 1234,
-        city: 'Updated Guadalajara',
-        state: 'Updated Jalisco',
-      };
-      project.description = 'Updated description';
-      project.duties = ['Updated duties'];
-      async.series([
-        (callback) => {
-          request(apiServer)
-            .put(`/projects/${project.id}`)
-            .send(project)
-            .type('application/json')
-            .expect(204)
-            .end(callback);
-        },
-        (callback) => {
-          request(apiServer)
-            .get(`/projects/${project.id}`)
-            .type('application/json')
-            .expect(200)
-            .expect('Content-Type', /json/)
-            .end((err, { body }) => {
-              if (err) return done(err);
-              const { data: updatedProject } = body;
-              should(updatedProject.name).be.exactly(project.name);
-              should(updatedProject.startDate).be.exactly(project.startDate);
-              should(updatedProject.client).be.exactly(project.client);
-              should(updatedProject.location).be.eql(project.location);
-              should(updatedProject.description).be.exactly(project.description);
-              should(updatedProject.duties).be.eql(project.duties);
-              should(is.date(updatedProject.createdOn)).be.exactly(true);
-              should(is.date(updatedProject.updatedOn)).be.exactly(true);
-              should(moment(updatedProject.updatedOn)
-                .isAfter(moment(updatedProject.createdOn)))
-                .be.exactly(true);
-              return callback(null);
-            });
-        },
-      ], done);
-    }, 1000);
-  });
-  it('Should respond 404 when updating project which does not exist', (done) => {
-    request(apiServer)
-      .put('/projects/notexists')
-      .send(project)
-      .type('application/json')
+  it('remove project by id not resource found', (done) => {
+    request(server)
+      .del('/projects/0')
       .expect(404)
       .expect('Content-Type', /json/)
-      .end((err, { body }) => {
-        if (err) return done(err);
-        const { data: existingProject } = body;
-        should(existingProject).be.exactly(null);
+      .then(({ body }) => {
+        const { data } = body;
+        should(data).be.exactly('Project resource not found');
         return done(null);
-      });
+      })
+      .catch(done);
+  });
+  it('update project', (done) => {
+    request(server)
+      .put(`/projects/${project.id}`)
+      .send({
+        name: 'bluejayUpdate',
+        startDate: 'Aug 2016',
+        endDate: 'Mar 2017',
+        highlight: 'a great project update',
+        clientId: companies.unosquare.id,
+        vendorId: companies.fmi.id,
+      })
+      .expect(204)
+      .then(() => request(server)
+        .get('/projects')
+        .expect(200))
+      .then(({ body }) => {
+        const { data: projects } = body;
+        should(projects).be.an.Array();
+        should(projects).have.length(1);
+        should(projects[0]).have.properties([
+          'name',
+          'id',
+          'startDate',
+          'endDate',
+          'highlight',
+          'clientId',
+          'vendorId',
+        ]);
+        should(projects[0].id).be.exactly(project.id);
+        should(projects[0].name).be.exactly('bluejayUpdate');
+        should(projects[0].startDate).be.exactly('Aug 2016');
+        should(projects[0].endDate).be.exactly('Mar 2017');
+        should(projects[0].highlight).be.exactly('a great project update');
+        should(projects[0].clientId).be.exactly(companies.unosquare.id);
+        should(projects[0].vendorId).be.exactly(companies.fmi.id);
+        return done(null);
+      })
+      .catch(done);
+  });
+  describe('add/remove roles to project', () => {
+    let role = {};
+    beforeEach((done) => {
+      role = {
+        name: 'Development',
+        color: '#FFFFFF',
+      };
+      request(server)
+        .post('/roles')
+        .send(role)
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then((response) => {
+          const { body } = response;
+          const { data } = body;
+          should(data.id).be.a.Number();
+          should(data.id > 0).be.exactly(true);
+          role.id = data.id;
+          return done(null);
+        })
+        .catch(done);
+    });
+    it('add/remove role to project', (done) => {
+      request(server)
+        .post(`/projects/${project.id}/roles`)
+        .send({
+          roleId: role.id,
+        })
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then(() => request(server)
+          .get(`/projects/${project.id}/roles`)
+          .expect('Content-Type', /json/)
+          .expect(200))
+        .then(({ body }) => {
+          const { data: roles } = body;
+          should(roles).be.an.Array();
+          should(roles).have.length(1);
+          should(roles[0]).have.properties([
+            'name',
+            'id',
+            'color',
+          ]);
+          should(roles[0].name).be.exactly('Development');
+          should(roles[0].color).be.exactly('#FFFFFF');
+          should(roles[0].id).be.exactly(role.id);
+          return request(server)
+            .del(`/projects/${project.id}/roles/${role.id}`)
+            .expect(204);
+        })
+        .then(() => request(server)
+          .get(`/projects/${project.id}/roles`)
+          .expect('Content-Type', /json/)
+          .expect(200))
+        .then(({ body }) => {
+          const { data: roles } = body;
+          should(roles).be.an.Array();
+          should(roles).be.empty();
+          return done(null);
+        })
+        .catch(done);
+    });
+    it('add role - throw 500 error if invalid payload', (done) => {
+      request(server)
+        .post(`/projects/${project.id}/roles`)
+        .send({
+          roleId: 0,
+        })
+        .expect('Content-Type', /json/)
+        .expect(500)
+        .then((response) => {
+          const { body } = response;
+          const { message: error } = body;
+          should(error).be.a.Object();
+          should(error.code).be.exactly('InvalidPayloadError');
+          should(error.message).be.exactly('projectRole.roleId does not conform to the "greaterThan0" format');
+          return done(null);
+        })
+        .catch(done);
+    });
+    afterEach((done) => {
+      request(server)
+        .del(`/roles/${role.id}`)
+        .expect(204)
+        .then(() => {
+          role = null;
+          return done(null);
+        })
+        .catch(done);
+    });
+  });
+  describe('add/remove tools to project', () => {
+    let tool = {};
+    beforeEach((done) => {
+      tool = {
+        name: 'node',
+        webpage: 'https://nodejs.org/en',
+      };
+      request(server)
+        .post('/tools')
+        .send(tool)
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then((response) => {
+          const { body } = response;
+          const { data } = body;
+          should(data.id).be.a.Number();
+          should(data.id > 0).be.exactly(true);
+          tool.id = data.id;
+          return done(null);
+        })
+        .catch(done);
+    });
+    it('add/remove tool to project', (done) => {
+      request(server)
+        .post(`/projects/${project.id}/tools`)
+        .send({
+          toolId: tool.id,
+        })
+        .expect('Content-Type', /json/)
+        .expect(201)
+        .then(() => request(server)
+          .get(`/projects/${project.id}/tools`)
+          .expect('Content-Type', /json/)
+          .expect(200))
+        .then(({ body }) => {
+          const { data: tools } = body;
+          should(tools).be.an.Array();
+          should(tools).have.length(1);
+          should(tools[0]).have.properties([
+            'name',
+            'id',
+            'webpage',
+          ]);
+          should(tools[0].name).be.exactly('node');
+          should(tools[0].webpage).be.exactly('https://nodejs.org/en');
+          should(tools[0].id).be.exactly(tool.id);
+          return request(server)
+            .del(`/projects/${project.id}/tools/${tool.id}`)
+            .expect(204);
+        })
+        .then(() => request(server)
+          .get(`/projects/${project.id}/tools`)
+          .expect('Content-Type', /json/)
+          .expect(200))
+        .then(({ body }) => {
+          const { data: tools } = body;
+          should(tools).be.an.Array();
+          should(tools).be.empty();
+          return done(null);
+        })
+        .catch(done);
+    });
+    afterEach((done) => {
+      request(server)
+        .del(`/tools/${tool.id}`)
+        .expect(204)
+        .then(() => {
+          tool = null;
+          return done(null);
+        })
+        .catch(done);
+    });
+  });
+  it('create project - throw 500 if invalid paylod', (done) => {
+    request(server)
+      .post('/projects')
+      .send({
+        name: 'bluejay',
+        startDate: '10-30-2015',
+        highlight: 'a great project',
+        clientId: companies.fmi.id,
+        vendorId: companies.unosquare.id,
+      })
+      .expect('Content-Type', /json/)
+      .expect(500)
+      .then((response) => {
+        const { body } = response;
+        const { message: error } = body;
+        should(error).be.a.Object();
+        should(error.code).be.exactly('InvalidPayloadError');
+        should(error.message).be.exactly('project.startDate does not conform to the "monthYear" format');
+        return done(null);
+      })
+      .catch(done);
+  });
+  it('update project - throw 500 if invalid payload', (done) => {
+    request(server)
+      .put(`/projects/${project.id}`)
+      .send({
+        name: 'bluejay',
+        startDate: 'Aug 2015',
+        endDate: 'Mar 2017',
+        highlight: 'a great project',
+        clientId: 0,
+        vendorId: 0,
+      })
+      .expect('Content-Type', /json/)
+      .expect(500)
+      .then((response) => {
+        const { body } = response;
+        const { message: error } = body;
+        should(error).be.a.Object();
+        should(error.code).be.exactly('InvalidPayloadError');
+        should(error.message).be.exactly('project.clientId does not conform to the "greaterThan0" format, project.vendorId does not conform to the "greaterThan0" format');
+        return done(null);
+      })
+      .catch(done);
+  });
+  it('add tool - throw 500 error if invalid payload', (done) => {
+    request(server)
+      .post(`/projects/${project.id}/tools`)
+      .send({
+        toolId: 0,
+      })
+      .expect('Content-Type', /json/)
+      .expect(500)
+      .then((response) => {
+        const { body } = response;
+        const { message: error } = body;
+        should(error).be.a.Object();
+        should(error.code).be.exactly('InvalidPayloadError');
+        should(error.message).be.exactly('projectTool.toolId does not conform to the "greaterThan0" format');
+        return done(null);
+      })
+      .catch(done);
   });
   afterEach((done) => {
-    request(apiServer)
-      .delete(`/projects/${project.id}`)
+    request(server)
+      .del(`/projects/${project.id}`)
       .expect(204)
-      .end(done);
+      .then(() => {
+        project = null;
+        return done(null);
+      })
+      .catch(done);
   });
   after((done) => {
-    core.removeDb(couchdbConf, done);
+    request(server)
+      .del(`/companies/${companies.unosquare.id}`)
+      .expect(204)
+      .then(() => request(server)
+        .del(`/companies/${companies.fmi.id}`)
+        .expect(204))
+      .then(() => {
+        companies.unosquare = null;
+        companies.fmi = null;
+        return request(server)
+          .del(`/locations/${locations.gdl.id}`)
+          .expect(204);
+      })
+      .then(() => request(server)
+        .del(`/locations/${locations.boston.id}`)
+        .expect(204))
+      .then(() => {
+        locations.gdl = null;
+        locations.boston = null;
+        return fs.unlinkAsync(config.DATABASE);
+      })
+      .then(() => done(null))
+      .catch(done);
   });
 });

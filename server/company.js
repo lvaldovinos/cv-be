@@ -1,56 +1,122 @@
-const { Company } = require('../lib/core');
+'use strict';
+
+const { Company, behaviorFactory } = require('cv-core');
 const restify = require('restify');
-const async = require('async');
+const util = require('../util');
 
-function getCompanies(req, res, next) {
-  Company.getAll((err, companies) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    return res.send(companies);
-  });
-}
+const getCompanyBehavior = util.getBehavior(behaviorFactory.types.COMPANY);
 
-function createCompanies(req, res, next) {
-  const company = new Company(req.body);
-  company.create((err) => {
-    if (err && err.code === 'InvalidType') {
-      return next(new restify.errors.InvalidContentError(err.message));
-    }
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    const { id, rev } = company;
-    return res.send(201, {
-      id,
-      rev,
-    });
+const companySchema = {
+  id: '/company',
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+      format: 'alphaAndSpace',
+    },
+    webpage: {
+      type: 'string',
+      format: 'url',
+    },
+    imageUrl: {
+      type: 'string',
+      format: 'url',
+    },
+    locationId: {
+      type: 'integer',
+      format: 'greaterThan0',
+    },
+  },
+  required: [
+    'name',
+    'webpage',
+    'imageUrl',
+  ],
+};
+
+const validateCompanyPayload = util.bodyValidator({
+  type: 'company',
+  schema: companySchema,
+});
+
+function createCompany(req, res, next) {
+  const { validatedBody: body, behavior } = req;
+  const newBody = Object.assign({}, body, {
+    behavior,
   });
+  Company.create(newBody)
+    .then((company) => {
+      req.responseData = {
+        code: 201,
+        data: {
+          id: company.id,
+        },
+      };
+      return next(null);
+    })
+    .catch(err => next(new restify.errors.InternalServerError(err.message)));
 }
 
 function getCompanyById(req, res, next) {
-  Company.findById(req.params.companyId, (err, existingCompany) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    if (existingCompany === null) return next(new restify.NotFoundError('Company id not found'));
-    return res.send(existingCompany);
-  });
+  const { behavior } = req;
+  const { companyId } = req.params;
+  const companyReader = new Company.Reader(behavior);
+  companyReader.getById(companyId)
+    .then((company) => {
+      if (company === null) {
+        return res.send(404, 'Company resource not found');
+      }
+      req.company = company;
+      return next(null);
+    })
+    .catch(err => next(new restify.errors.InternalServerError(err.message)));
 }
 
-function removeCompanyById(req, res, next) {
-  async.waterfall([
-    (callback) => {
-      Company.findById(req.params.companyId, callback);
-    },
-    (existingCompany, callback) => {
-      if (existingCompany === null) return callback(null, null);
-      return existingCompany.remove(callback);
-    },
-  ], (err, result) => {
-    if (err) return next(new restify.errors.InternalServerError(err.message));
-    if (result === null) return next(new restify.NotFoundError('Company id not found'));
-    return res.send(204, null);
-  });
+function removeCompany(req, res, next) {
+  const { company } = req;
+  company.remove()
+    .then(() => {
+      req.responseData = {
+        code: 204,
+      };
+      return next(null);
+    })
+    .catch(err => next(new restify.errors.InternalServerError(err.message)));
 }
 
-module.exports = (server) => {
-  server.get('/companies', getCompanies);
-  server.get('/companies/:companyId', getCompanyById);
-  server.del('/companies/:companyId', removeCompanyById);
-  server.post('/companies', createCompanies);
-};
+function updateCompany(req, res, next) {
+  const { company, validatedBody: body } = req;
+  Object.assign(company, body);
+  company.update()
+    .then(() => {
+      req.responseData = {
+        code: 204,
+      };
+      return next(null);
+    })
+    .catch(err => next(new restify.errors.InternalServerError(err.message)));
+}
+
+function getAllCompanies(req, res, next) {
+  const { behavior } = req;
+  const companyReader = new Company.Reader(behavior);
+  companyReader
+    .getAll()
+    .then((companies) => {
+      req.responseData = {
+        code: 200,
+        data: companies,
+      };
+      return next(null);
+    })
+    .catch(err => next(new restify.errors.InternalServerError(err.message)));
+}
+
+function router(server) {
+  server.post('/companies', validateCompanyPayload, getCompanyBehavior, createCompany, util.sendResponse);
+  server.get('/companies', getCompanyBehavior, getAllCompanies, util.sendResponse);
+  server.del('/companies/:companyId', getCompanyBehavior, getCompanyById, removeCompany, util.sendResponse);
+  server.put('/companies/:companyId', validateCompanyPayload, getCompanyBehavior, getCompanyById, updateCompany, util.sendResponse);
+}
+
+module.exports = router;
