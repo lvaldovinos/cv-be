@@ -5,10 +5,9 @@ sudo: required
 services:
   - docker
 before_install:
-  - docker run -d --name couchdb couchdb
   - docker build -t lvaldovinos/cv-be .
 install:
-  - docker run -d --name cv-be --link couchdb:cv-couchdb lvaldovinos/cv-be
+  - docker run -d --name cv-be lvaldovinos/cv-be
 script:
   - docker exec -it cv-be npm test
 after_script:

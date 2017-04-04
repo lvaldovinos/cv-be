@@ -5,18 +5,10 @@
     "node": true,
     "es6": true
   },
+  "parserOptions": {
+    "sourceType": "script"
+  },
   "rules": {
-    "strict": [2, "global"],
-    "no-underscore-dangle": ["error", {
-      "allow": ["_id", "_rev"]
-      }
-    ],
-    "import/no-extraneous-dependencies": 0,
-    "no-unused-vars": ["error", {
-      "argsIgnorePattern": "^next$"
-    }],
-    "new-cap": ["error", {
-      "capIsNewExceptions": ["CORS"]
-    }]
+    "strict": ["error", "global"]
   }
 }

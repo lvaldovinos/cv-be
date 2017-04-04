@@ -1,16 +1,13 @@
 {
   "name": "cv-be",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Curriculum vitae backend services powered by restify",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint lib test server index.js",
-    "coverage-local": "CONFIG=config.json ENV=local istanbul cover _mocha -- -R spec",
-    "coverage-dev": "CONFIG=config.json ENV=dev istanbul cover _mocha -- -R spec",
-    "test": "npm run lint && npm run coverage-dev",
-    "test-local": "npm run lint && npm run coverage-local",
-    "dev": "./index.js -e dev",
-    "local": "./index.js -e local"
+    "lint": "eslint test server index",
+    "coverage": "istanbul cover _mocha -- -R spec test",
+    "test": "npm run lint && npm run coverage",
+    "api": "./index.js"
   },
   "repository": {
     "type": "git",
@@ -28,19 +25,16 @@
   },
   "homepage": "https://github.com/lvaldovinos/cv-be#readme",
   "dependencies": {
-    "async": "^2.0.1",
-    "commander": "^2.9.0",
-    "moment": "^2.14.1",
-    "my-config": "^2.0.0",
-    "node-uuid": "^1.4.7",
-    "request": "^2.74.0",
+    "bluebird": "^3.5.0",
+    "cv-core": "git+https://github.com/lvaldovinos/cv-core.git",
+    "jsonschema": "^1.1.1",
     "restify": "^4.1.1",
     "winston": "^2.2.0"
   },
   "devDependencies": {
-    "eslint": "^3.3.1",
-    "eslint-config-airbnb-base": "^7.1.0",
-    "eslint-plugin-import": "^1.15.0",
+    "eslint": "^3.18.0",
+    "eslint-config-airbnb-base": "^11.1.2",
+    "eslint-plugin-import": "^2.2.0",
     "istanbul": "^0.4.4",
     "mocha": "^2.5.3",
     "should": "^10.0.0",
