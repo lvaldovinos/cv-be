@@ -39,3 +39,6 @@ jspm_packages
 # vim temporary files
 *.swp
 *.swo
+
+# ignore data.db file created by sqlite3
+data.db
